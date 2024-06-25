@@ -10,7 +10,7 @@
         "plugin:prettier/recommended",
         "plugin:perfectionist/recommended-alphabetical"
     ],
-    "plugins": ["unused-imports", "prettier"],
+    "plugins": ["prettier"],
     "parser": "@typescript-eslint/parser",
     "rules": {
         "prettier/prettier": [
@@ -20,7 +20,6 @@
             }
         ],
         "class-methods-use-this": "error",
-        "unused-imports/no-unused-imports": ["error"],
         "import/no-unresolved": "off",
         "import/namespace": "error",
         "perfectionist/sort-imports": "off",
