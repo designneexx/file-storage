@@ -22,7 +22,7 @@ import { getFullImageUrl } from './utils/getFullImageURL.js';
 import { isImageEntry } from './utils/isImageEntry.js';
 import { uploadResume } from './utils/uploadResume.js';
 
-const BASE_PATH = `${__dirname}/uploads`;
+const BASE_PATH = `${process.cwd()}/tmp`;
 
 const { pdfServicesClientId, pdfServicesClientSecret, port } = enviroments;
 
