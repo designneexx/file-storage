@@ -63,6 +63,11 @@ app.post('/upload', async (req, res) => {
 
   try {
     const uuid = v4();
+
+    if (!fs.existsSync(BASE_PATH)) {
+      fs.mkdirSync(BASE_PATH);
+    }
+
     const dir = path.join(BASE_PATH, uuid);
     const multerResume = uploadResume(dir);
     const file = await multerResume.upload(req, res, PDF_FIELD_NAME);
