@@ -1,6 +1,6 @@
 import { ZipEntry } from 'node-stream-zip';
-import { getFileExt } from './getFileExt.js';
 import { IMAGES } from 'src/consts.js';
+import { getFileExt } from './getFileExt.js';
 
 export function isImageEntry(entry: ZipEntry) {
   const { name } = entry;

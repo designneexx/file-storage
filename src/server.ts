@@ -14,13 +14,13 @@ import cors from 'cors';
 import express from 'express';
 import mime from 'mime';
 import StreamZip, { ZipEntry } from 'node-stream-zip';
+import { getTextExtractor } from 'office-text-extractor';
 import { v4 } from 'uuid';
-import { enviroments } from './enviroments.js';
-import { uploadResume } from './utils/uploadResume.js';
 import { PDF_FIELD_NAME } from './consts.js';
+import { enviroments } from './enviroments.js';
 import { getFullImageUrl } from './utils/getFullImageURL.js';
 import { isImageEntry } from './utils/isImageEntry.js';
-import { getTextExtractor } from 'office-text-extractor';
+import { uploadResume } from './utils/uploadResume.js';
 
 const BASE_PATH = 'uploads';
 
@@ -53,7 +53,7 @@ app.get('/download/:dirPath/:filePath', async (req, res) => {
   filestream.pipe(res);
 });
 
-app.post('/upload', async (req, res, next) => {
+app.post('/upload', async (req, res) => {
   let readStream: fs.ReadStream | null = null;
   let writeStream: fs.WriteStream | null = null;
 
