@@ -16,13 +16,13 @@ import mime from 'mime';
 import StreamZip, { ZipEntry } from 'node-stream-zip';
 import { getTextExtractor } from 'office-text-extractor';
 import { v4 } from 'uuid';
-import { PDF_FIELD_NAME } from './consts.js';
+import { PDF_FIELD_NAME, __dirname } from './consts.js';
 import { enviroments } from './enviroments.js';
 import { getFullImageUrl } from './utils/getFullImageURL.js';
 import { isImageEntry } from './utils/isImageEntry.js';
 import { uploadResume } from './utils/uploadResume.js';
 
-const BASE_PATH = 'uploads';
+const BASE_PATH = `${__dirname}/uploads`;
 
 const { pdfServicesClientId, pdfServicesClientSecret, port } = enviroments;
 
