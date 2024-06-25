@@ -37,6 +37,10 @@ const credentials = new ServicePrincipalCredentials({
   clientSecret: pdfServicesClientSecret
 });
 
+app.get('/', (req, res) => {
+  res.json({ data: 'hello!' });
+});
+
 app.get('/download/:dirPath/:filePath', async (req, res) => {
   const { dirPath, filePath } = req.params;
 
