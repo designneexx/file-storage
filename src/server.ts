@@ -1,5 +1,4 @@
 import fs from 'fs';
-import path from 'path';
 import {
   ExtractElementType,
   ExtractPDFJob,
@@ -10,21 +9,30 @@ import {
   PDFServices,
   ServicePrincipalCredentials
 } from '@adobe/pdfservices-node-sdk';
+import AdmZip, { IZipEntry } from 'adm-zip';
 import cors from 'cors';
+import EasyYandexS3 from 'easy-yandex-s3';
 import express from 'express';
-import mime from 'mime';
-import StreamZip, { ZipEntry } from 'node-stream-zip';
 import { getTextExtractor } from 'office-text-extractor';
-import { v4 } from 'uuid';
-import { PDF_FIELD_NAME, __dirname } from './consts.js';
+import { PDF_FIELD_NAME } from './consts.js';
 import { enviroments } from './enviroments.js';
-import { getFullImageUrl } from './utils/getFullImageURL.js';
+import { createFileUploader } from './utils/createFileUploader.js';
+import { getBufferFromStrem } from './utils/getBufferFromStream.js';
+import { getBufferZipEntry } from './utils/getBufferZipEntry.js';
+import { getImageLocation } from './utils/getImageLocation.js';
+import { getReadableBuffer } from './utils/getReadableBuffer.js';
 import { isImageEntry } from './utils/isImageEntry.js';
+import { uploadImageBuffer } from './utils/uploadImageBuffer.js';
 import { uploadResume } from './utils/uploadResume.js';
 
-const BASE_PATH = `${process.cwd()}/tmp`;
-
-const { pdfServicesClientId, pdfServicesClientSecret, port } = enviroments;
+const {
+  pdfServicesClientId,
+  pdfServicesClientSecret,
+  port,
+  yandexBucketName,
+  yandexKeyId,
+  yandexKeySecret
+} = enviroments;
 
 const app = express();
 
@@ -37,50 +45,35 @@ const credentials = new ServicePrincipalCredentials({
   clientSecret: pdfServicesClientSecret
 });
 
-app.get('/', (req, res) => {
+// Инициализация
+const s3 = new EasyYandexS3.default({
+  auth: {
+    accessKeyId: yandexKeyId,
+    secretAccessKey: yandexKeySecret
+  },
+  Bucket: yandexBucketName,
+  debug: true // Дебаг в консоли, потом можете удалить в релизе
+});
+
+app.get('/', (_req, res) => {
   res.json({ data: 'hello!' });
 });
 
-app.get('/download/:dirPath/:filePath', async (req, res) => {
-  const { dirPath, filePath } = req.params;
-
-  const fullFilePath = path.join(BASE_PATH, dirPath, filePath);
-
-  const filename = path.basename(fullFilePath);
-  const mimetype = mime.getType(fullFilePath);
-
-  res.setHeader('Content-disposition', 'attachment; filename=' + filename);
-  res.setHeader('Content-type', mimetype);
-
-  const filestream = fs.createReadStream(fullFilePath);
-
-  filestream.pipe(res);
-});
-
 app.post('/upload', async (req, res) => {
-  let readStream: fs.ReadStream | null = null;
-  let writeStream: fs.WriteStream | null = null;
-
   try {
-    const uuid = v4();
-
-    if (!fs.existsSync(BASE_PATH)) {
-      fs.mkdirSync(BASE_PATH);
-    }
-
-    const dir = path.join(BASE_PATH, uuid);
-    const multerResume = uploadResume(dir);
+    const multerResume = uploadResume();
     const file = await multerResume.upload(req, res, PDF_FIELD_NAME);
-    const pdfPath = path.join(dir, file.filename);
-    const fullUrl = `${req.protocol}://${req.headers.host}`;
+    const uploadFile = createFileUploader(s3);
+    const uploadedFile = await uploadFile(file, '/images/');
+    const resumeUrl = uploadedFile.Location;
 
     const pdfServices = new PDFServices({ credentials });
 
-    readStream = fs.createReadStream(pdfPath);
+    const readable = getReadableBuffer(file.buffer);
 
     const inputAsset = await pdfServices.upload({
       mimeType: MimeType.PDF,
-      readStream
+      readStream: readable
     });
 
     const params = new ExtractPDFParams({
@@ -101,42 +94,33 @@ app.post('/upload', async (req, res) => {
 
     const streamAsset = await pdfServices.getContent({ asset: resultAsset });
 
-    const outputFilePath = path.join(dir, 'extracted.zip');
+    const zipBuffer = await getBufferFromStrem(streamAsset.readStream);
 
-    writeStream = fs.createWriteStream(outputFilePath);
+    const zip = new AdmZip(zipBuffer);
 
-    await new Promise<void>((resolve) => {
-      streamAsset.readStream.pipe(writeStream);
+    const zipEntries = zip.getEntries();
 
-      writeStream.on('finish', () => {
-        resolve();
-      });
-    });
+    const imageEntries: IZipEntry[] = Object.values(zipEntries).filter(isImageEntry);
 
-    const zip = new StreamZip.async({ file: outputFilePath });
+    const imagesPromise = imageEntries.map(getBufferZipEntry);
 
-    const entries = await zip.entries();
+    const imagesBuffer = await Promise.allSettled(imagesPromise);
 
-    const imageEntries: ZipEntry[] = Object.values(entries).filter(isImageEntry);
-    const imagesPromise = imageEntries.map((entry) => zip.extract(entry, dir).then(() => entry));
+    const imagesQueue = imagesBuffer.reduce(uploadImageBuffer(uploadFile, '/images/'), []);
 
-    const imagesLoaded = await Promise.allSettled(imagesPromise);
-    const imagesUrl = imagesLoaded.reduce(getFullImageUrl(fullUrl, uuid), []);
+    const imagesLoaded = await Promise.allSettled(imagesQueue);
+
+    const imagesList = imagesLoaded.reduce(getImageLocation, []);
 
     const text = await extractor.extractText({
-      input: file.path,
-      type: 'file'
+      input: file.buffer,
+      type: 'buffer'
     });
 
-    const resumePath = `${fullUrl}/download/${uuid}/${file.filename}`;
-
-    res.json({ imagesUrl, resumePath, text });
+    res.json({ imagesList, resumeUrl, text });
   } catch (error) {
     console.log('error', error.message);
     res.status(400).json({ error: error.message });
-  } finally {
-    readStream?.destroy();
-    writeStream?.destroy();
   }
 });
 

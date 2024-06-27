@@ -1,27 +1,10 @@
-import fs from 'fs';
 import { Request, Response } from 'express';
 import multer from 'multer';
-import { v4 } from 'uuid';
 import { ALLOWED_EXTENSIONS, ALLOWED_MIME_TYPES } from '../consts.js';
 import { getFileExt } from './getFileExt.js';
 
-export function uploadResume(path: string) {
-  const storage = multer.diskStorage({
-    destination(_req, _file, cb) {
-      if (!fs.existsSync(path)) {
-        fs.mkdirSync(path);
-      }
-
-      cb(null, path);
-    },
-    filename(_req, file, cb) {
-      const id = v4();
-      const extname = getFileExt(file.originalname);
-      const fileName = `${id}.${extname}`;
-
-      cb(null, fileName);
-    }
-  });
+export function uploadResume() {
+  const storage = multer.memoryStorage();
 
   const uploadMulter = multer({
     fileFilter(_req, file, cb) {
