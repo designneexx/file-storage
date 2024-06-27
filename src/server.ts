@@ -1,4 +1,3 @@
-import fs from 'fs';
 import {
   ExtractElementType,
   ExtractPDFJob,
@@ -52,7 +51,7 @@ const s3 = new EasyYandexS3.default({
     secretAccessKey: yandexKeySecret
   },
   Bucket: yandexBucketName,
-  debug: true // Дебаг в консоли, потом можете удалить в релизе
+  debug: true
 });
 
 app.get('/', (_req, res) => {
